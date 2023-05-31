@@ -273,7 +273,21 @@ void write_block_group_descriptor_table(int fd) {
 }
 
 void write_block_bitmap(int fd) {
-	/* This is all you */
+	off_t off = lseek(fd, BLOCK_OFFSET(3), SEEK_SET);
+	if (off == -1) {
+		errno_exit("lseek");
+	}
+	u8 bitmap[BLOCK_SIZE] = {0};
+	bitmap[0] = 0xFF;
+	bitmap[1] = 0xFF;
+	bitmap[2] = 0x7F;
+	bitmap[127] = 0x80;
+	for(size_t i=128; i<1024; i++){
+		bitmap[i] = 0xFF;
+	}
+	if (write(fd, &bitmap, BLOCK_SIZE) != BLOCK_SIZE) {
+		errno_exit("write");
+	}
 }
 
 void write_inode_bitmap(int fd) {
