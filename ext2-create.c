@@ -281,6 +281,9 @@ void write_block_bitmap(int fd) {
 	block_bitmap[0] = 0xFF;
 	block_bitmap[1] = 0xFF;
 	block_bitmap[2] = 0x7F;
+	for(size_t i=3; i<=126; i++){
+		block_bitmap[i] = 0x00;
+	}
 	block_bitmap[127] = 0x80;
 	for(size_t i=128; i<BLOCK_SIZE; i++){
 		block_bitmap[i] = 0xFF;
@@ -295,10 +298,14 @@ void write_inode_bitmap(int fd) {
 	if (off == -1) {
 		errno_exit("lseek");
 	}
-	u8 inode_bitmap[BLOCK_SIZE] = {0XFF};
+	u8 inode_bitmap[BLOCK_SIZE] = {0};
+	inode_bitmap[0] = 0xFF;
 	inode_bitmap[1] = 0x1F;
-	for(size_t i=3; i<=16; i++){
-		inode_bitmap[i] = 0;
+	for(size_t i=2; i<=15; i++){
+		inode_bitmap[i] = 0x00;
+	}
+	for(size_t i=16; i<BLOCK_SIZE; i++){
+		inode_bitmap[i] = 0xFF;
 	}
 	if (write(fd, &inode_bitmap, BLOCK_SIZE) != BLOCK_SIZE) {
 		errno_exit("write");
@@ -403,7 +410,47 @@ void write_inode_table(int fd) {
 }
 
 void write_root_dir_block(int fd) {
-	/* This is all you */
+	off_t off = BLOCK_OFFSET(ROOT_DIR_BLOCKNO);
+	off = lseek(fd, off, SEEK_SET);
+	if (off == -1) {
+		errno_exit("lseek");
+	}
+
+	ssize_t bytes_remaining = BLOCK_SIZE;
+
+	struct ext2_dir_entry current_entry = {0};
+	dir_entry_set(current_entry, EXT2_ROOT_INO, ".");
+	dir_entry_write(current_entry, fd);
+
+	bytes_remaining -= current_entry.rec_len;
+
+	struct ext2_dir_entry parent_entry = {0};
+	dir_entry_set(parent_entry, EXT2_ROOT_INO, "..");					//fix this later
+	dir_entry_write(parent_entry, fd);
+
+	bytes_remaining -= parent_entry.rec_len;
+
+	struct ext2_dir_entry hello_world_entry = {0};
+	dir_entry_set(hello_world_entry, HELLO_WORLD_INO, "hello-world");
+	dir_entry_write(hello_world_entry, fd);
+
+	bytes_remaining -= hello_world_entry.rec_len;
+
+	struct ext2_dir_entry hello_sym_entry = {0};
+	dir_entry_set(hello_sym_entry, HELLO_INO, "hello");
+	dir_entry_write(hello_sym_entry, fd);
+
+	bytes_remaining -= hello_sym_entry.rec_len;
+
+	struct ext2_dir_entry lost_and_found_entry = {0};
+	dir_entry_set(lost_and_found_entry, LOST_AND_FOUND_INO, "lost+found");
+	dir_entry_write(lost_and_found_entry, fd);
+
+	bytes_remaining -= lost_and_found_entry.rec_len;
+
+	struct ext2_dir_entry fill_entry = {0};
+	fill_entry.rec_len = bytes_remaining;
+	dir_entry_write(fill_entry, fd);
 }
 
 void write_lost_and_found_dir_block(int fd) {
